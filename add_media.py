@@ -5,93 +5,111 @@
 '''
 import os
 from PIL import Image
+from PIL import UnidentifiedImageError
 
-def process_articles():
-    # 遍历articles目录中的所有.md文件
+def get_image_size(filepath):
+    try:
+        with Image.open(filepath) as img:
+            return img.size  # (width, height)
+    except (IOError, OSError, UnidentifiedImageError):
+        return None
+
+def generate_content_blocks(media_dir):
+    image_exts = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+    video_exts = {'.mp4', '.mov', '.avi', '.mkv'}
+    audio_exts = {'.mp3', '.wav', '.ogg'}
+    
+    content_blocks = []
+    portrait_images = []
+    landscape_images = []
+    videos = []
+    audios = []
+
+    # Collect and classify media files
+    for entry in os.scandir(media_dir):
+        if not entry.is_file():
+            continue
+            
+        filepath = entry.path
+        filename = entry.name
+        ext = os.path.splitext(filename)[1].lower()
+        
+        # Generate GitHub URL
+        rel_path = os.path.relpath(filepath, 'files').replace('\\', '/')
+        url = f'https://github.com/Willian7004/media-blog/blob/main/files/{rel_path}?raw=true'
+
+        if ext in image_exts:
+            size = get_image_size(filepath)
+            if not size:
+                continue
+                
+            width, height = size
+            if width < height:
+                portrait_images.append(url)
+            else:
+                landscape_images.append((url, filename))
+                
+        elif ext in video_exts:
+            videos.append(url)
+        elif ext in audio_exts:
+            audios.append(url)
+
+    # Process portrait images (vertical)
+    for i in range(0, len(portrait_images), 2):
+        group = portrait_images[i:i+2]
+        imgs = [f'<img src="{url}" style="width:500px;" />' for url in group]
+        div_html = f'<div style="display: flex; justify-content: center; gap: 10px; margin: 10px 0;">\n' + '\n'.join(imgs) + '\n</div>'
+        content_blocks.append(div_html)
+
+    # Process landscape images (horizontal)
+    for url, filename in landscape_images:
+        content_blocks.append(f'![{filename}]({url})')
+
+    # Process videos
+    for url in videos:
+        content_blocks.append(f'<video src="{url}" controls style="max-width: 100%;"></video>')
+
+    # Process audios
+    for url in audios:
+        content_blocks.append(f'<audio src="{url}" controls></audio>')
+
+    return content_blocks
+
+def main():
     for root, dirs, files in os.walk('articles'):
         for file in files:
-            if not file.lower().endswith('.md'):
+            if not file.endswith('.md'):
                 continue
-            
+                
             md_path = os.path.join(root, file)
             
-            # 构建对应的files目录路径
-            relative_md = os.path.relpath(md_path, 'articles')
-            media_folder = os.path.splitext(relative_md)[0]
-            media_dir = os.path.join('files', media_folder)
+            # Get corresponding media directory
+            rel_path = os.path.relpath(md_path, 'articles')
+            base_name = os.path.splitext(rel_path)[0]
+            media_dir = os.path.join('files', base_name)
             
             if not os.path.exists(media_dir):
                 continue
-            
-            # 读取.md文件内容
+
+            # Generate content blocks
+            content_blocks = generate_content_blocks(media_dir)
+            if not content_blocks:
+                continue
+
+            # Read existing content
             with open(md_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            vertical_images = []
+                existing_content = f.read()
+
+            # Filter new content
             new_content = []
-            
-            # 处理媒体文件
-            for media_file in sorted(os.listdir(media_dir)):
-                media_path = os.path.join(media_dir, media_file)
-                if not os.path.isfile(media_path):
-                    continue
-                
-                # 生成GitHub URL
-                relative_path = os.path.relpath(media_path, 'files')
-                github_url = (
-                    "https://github.com/Willian7004/media-blog/blob/main/"
-                    f"{relative_path.replace(os.sep, '/')}?raw=true"
-                )
-                
-                # 跳过已存在的内容
-                if github_url in content:
-                    continue
-                
-                # 根据文件类型处理
-                ext = os.path.splitext(media_file)[1].lower()
-                
-                # 处理图片
-                if ext in {'.jpg', '.jpeg', '.png', '.gif'}:
-                    try:
-                        with Image.open(media_path) as img:
-                            width, height = img.size
-                    except:
-                        continue
-                    
-                    if width < height:
-                        vertical_images.append(github_url)
-                    else:
-                        new_content.append(f"![{media_file}]({github_url})")
-                
-                # 处理视频
-                elif ext in {'.mp4', '.mov', '.avi', '.webm'}:
-                    new_content.append(
-                        f'<video src="{github_url}" controls style="'
-                        'display: block; margin: 20px auto; width: 500px;"></video>'
-                    )
-                
-                # 处理音频
-                elif ext in {'.mp3', '.wav', '.ogg'}:
-                    new_content.append(
-                        f'<audio src="{github_url}" controls style="'
-                        'display: block; margin: 20px auto;"></audio>'
-                    )
-            
-            # 处理竖版图片分组
-            for i in range(0, len(vertical_images), 2):
-                group = vertical_images[i:i+2]
-                imgs = [f'<img src="{url}" width="500" style="display: inline-block;">' 
-                       for url in group]
-                new_content.append(
-                    f'<div style="text-align: center;">\n' +
-                    '\n'.join(imgs) +
-                    '\n</div>'
-                )
-            
-            # 追加新内容到文件
+            for block in content_blocks:
+                if block not in existing_content:
+                    new_content.append(block)
+
+            # Append new content
             if new_content:
                 with open(md_path, 'a', encoding='utf-8') as f:
                     f.write('\n\n' + '\n\n'.join(new_content))
 
 if __name__ == '__main__':
-    process_articles()
+    main()

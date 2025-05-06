@@ -80,10 +80,10 @@ def parse_article_files(month_folder, keywords, full_text_search):
 
 def extract_content(content):
     """提取并清理markdown内容"""
-    # 移除Markdown图片语法
-    content = re.sub(r'!\$$.*?\$$$(.*?)$', '', content, flags=re.DOTALL)
-    # 移除HTML图片标签
-    content = re.sub(r'<img.*?>', '', content, flags=re.DOTALL)
+    # 移除标准Markdown图片语法 ![alt](url)
+    content = re.sub(r'!\[.*?\]\(.*?\)', '', content, flags=re.DOTALL)
+    # 移除HTML图片标签 <img>
+    content = re.sub(r'<img\s+.*?>', '', content, flags=re.DOTALL)
     return content
 
 def main():
