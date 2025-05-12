@@ -4,6 +4,9 @@
 2.在侧边栏创建下拉菜单、输入框和两个复选框。下拉菜单用于选择月份对应的文件夹，较新的排在前面，第一个选项为“全部”，用于选择所有文件夹。在输入框输入文字筛选标题包含特定关键词的文件，通过空格输入多个关键词以筛选同时包含所有关键词的文件。第一个复选框文字为“全文搜索”，选中后搜索文件全文。第二个复选框文字为“显示下载按钮”，选中后在页面上的图片下方添加下载按钮用于下载对应图片。
 3.在侧边栏创建单选按钮文字为文件标题，用于选中对应文件。新的文件显示在上方。在每个日期的文件上方添加一个文字为对应日期的选项，用于选中相应日期的最新文件。
 4.选中文件后在页面上使用st.markdown显示对应的文件内容（包括标题）,排除图片和html内容。在下方按文件名顺序加载与.md文件对应的文件夹中的图片、视频和音频文件，其中视频设为自动播放、循环播放。
+
+更新：
+修改以上程序，在页面上显示图片时，分三列显示 宽度<高度 的图片，分两列显示 宽度=高度 的图片，其它的不分列显示。
 '''
 
 import streamlit as st
@@ -19,6 +22,7 @@ st.sidebar.title("Media Blog")
 
 import re
 from datetime import datetime
+from PIL import Image
 
 def get_month_folders():
     """获取所有符合格式的月份文件夹"""
@@ -151,28 +155,75 @@ def main():
     cleaned_content = extract_content(selected_file['content'])
     st.markdown(cleaned_content)
     
-    # 显示媒体文件
+   # 显示媒体文件
     media_folder = selected_file['path'].replace('articles', 'files', 1).rsplit('.', 1)[0]
     
     if os.path.exists(media_folder) and os.path.isdir(media_folder):
         media_files = sorted(os.listdir(media_folder))
         
+        # 初始化列状态变量
+        current_col_type = None
+        current_columns = None
+        current_col_index = 0
+
         for media_file in media_files:
             file_path = os.path.join(media_folder, media_file)
             ext = media_file.split('.')[-1].lower()
             
             try:
                 if ext in ['png', 'jpg', 'jpeg', 'gif']:
-                    st.image(file_path)
-                    if show_download:
-                        with open(file_path, "rb") as f:
-                            st.download_button(
-                                label=f"下载",
-                                data=f.read(),
-                                file_name=media_file,
-                                mime=f"image/{ext}",
-                                key=f"img_{media_file}"
-                            )
+                    # 获取图片尺寸
+                    try:
+                        with Image.open(file_path) as img:
+                            width, height = img.size
+                    except Exception as e:
+                        st.error(f"无法读取图片尺寸：{media_file} - {str(e)}")
+                        continue
+
+                    # 判断列类型
+                    if width < height:
+                        col_type = 3
+                    elif width == height:
+                        col_type = 2
+                    else:
+                        col_type = 1
+
+                    # 分列显示逻辑
+                    if col_type in [3, 2]:
+                        if current_col_type != col_type or current_col_index >= col_type:
+                            current_columns = st.columns(col_type)
+                            current_col_type = col_type
+                            current_col_index = 0
+                        
+                        with current_columns[current_col_index]:
+                            st.image(file_path)
+                            if show_download:
+                                with open(file_path, "rb") as f:
+                                    st.download_button(
+                                        label=f"下载",
+                                        data=f.read(),
+                                        file_name=media_file,
+                                        mime=f"image/{ext}",
+                                        key=f"img_{media_file}_{current_col_index}"
+                                    )
+                        current_col_index += 1
+                    else:
+                        # 单列显示
+                        st.image(file_path)
+                        if show_download:
+                            with open(file_path, "rb") as f:
+                                st.download_button(
+                                    label=f"下载",
+                                    data=f.read(),
+                                    file_name=media_file,
+                                    mime=f"image/{ext}",
+                                    key=f"img_{media_file}"
+                                )
+                        # 重置列状态
+                        current_col_type = None
+                        current_columns = None
+                        current_col_index = 0
+
                 elif ext in ['mp4', 'webm']:
                     st.video(file_path, autoplay=True, loop=True, muted=True)
                 elif ext in ['mp3', 'wav']:
