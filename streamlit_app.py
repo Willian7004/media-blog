@@ -86,8 +86,10 @@ def extract_content(content):
     """提取并清理markdown内容"""
     # 移除标准Markdown图片语法 ![alt](url)
     content = re.sub(r'!\[.*?\]\(.*?\)', '', content, flags=re.DOTALL)
-    # 移除HTML图片标签 <img>
+    # 移除HTML图片、视频、音频标签 <img>
     content = re.sub(r'<img\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'<video\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'<audio\s+.*?>', '', content, flags=re.DOTALL)
     return content
 
 def main():
