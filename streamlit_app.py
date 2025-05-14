@@ -88,8 +88,11 @@ def extract_content(content):
     content = re.sub(r'!\[.*?\]\(.*?\)', '', content, flags=re.DOTALL)
     # 移除HTML图片、视频、音频标签 <img>
     content = re.sub(r'<img\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'</img>', '', content, flags=re.DOTALL)
     content = re.sub(r'<video\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'</video>', '', content, flags=re.DOTALL)
     content = re.sub(r'<audio\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'</audio>', '', content, flags=re.DOTALL)
     return content
 
 def main():
