@@ -91,6 +91,8 @@ def extract_content(content):
     content = re.sub(r'</img>', '', content, flags=re.DOTALL)
     content = re.sub(r'<video\s+.*?>', '', content, flags=re.DOTALL)
     content = re.sub(r'</video>', '', content, flags=re.DOTALL)
+    content = re.sub(r'<div\s+.*?>', '', content, flags=re.DOTALL)
+    content = re.sub(r'</div>', '', content, flags=re.DOTALL)
     content = re.sub(r'<audio\s+.*?>', '', content, flags=re.DOTALL)
     content = re.sub(r'</audio>', '', content, flags=re.DOTALL)
     return content
